@@ -10,14 +10,6 @@ The system reads real-time analog sensor data from a potentiometer, compresses t
 
 
 
-\## Project Workflow
-
-
-
-!\[Project Workflow](images/project\_workflow.png)
-
-
-
 \## Features
 
 
