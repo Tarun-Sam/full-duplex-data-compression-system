@@ -484,6 +484,23 @@ def update_gui(pkt):
     mode_colour = PURPLE if pkt["compression_name"] == "ZERO-RLE" else TEAL
     mode_badge.config(text=f" MODE: {pkt['compression_name']}  ", bg=mode_colour, fg=BG)
 
+    # Mode explanation label
+    if pkt["compression_name"] == "ZERO-RLE":
+        mode_explain_label.config(text="Stable/repeated signal detected", fg=TEXT2)
+    elif pkt["compression_name"] == "BIT-PACKING":
+        mode_explain_label.config(text="Changing signal, packed deltas used", fg=TEXT2)
+    else:
+        mode_explain_label.config(text="Compression mode unknown", fg=TEXT3)
+
+    # Waveform info label
+    wave_info_label.config(
+        text=(
+            f"Current: {pkt['last_voltage']:.2f} V   "
+            f"Range: {pkt['min_voltage']:.2f} V - {pkt['max_voltage']:.2f} V   "
+            f"Samples: {len(pkt['spark'])}"
+        )
+    )
+
     # Metric strip
     metric_label.config(
         text=(
@@ -605,6 +622,8 @@ def clear_display():
 
     mode_badge.config(text=" MODE:  —  ", bg=BORDER, fg=TEXT3)
     metric_label.config(text="  Display cleared — awaiting new packets …", fg=TEXT3)
+    mode_explain_label.config(text="Waiting for compression mode…", fg=TEXT3)
+    wave_info_label.config(text="Current: —   Range: —   Samples: 0")
 
     set_status("Display cleared", ORANGE)
 
@@ -665,6 +684,8 @@ def disconnect():
     btn_send_return.config(state=tk.DISABLED)
     mode_badge.config(text=" MODE:  —  ", bg=BORDER, fg=TEXT3)
     set_status("Disconnected", RED)
+    mode_explain_label.config(text="Waiting for compression mode…", fg=TEXT3)
+    wave_info_label.config(text="Current: —   Range: —   Samples: 0")
     metric_label.config(text="  Awaiting connection …", fg=TEXT3)
 
 
@@ -987,6 +1008,10 @@ mode_badge = tk.Label(strip_inner, text="  —  ", bg=BORDER, fg=TEXT3,
                       font=("Courier New", 11, "bold"), padx=8, pady=3)
 mode_badge.pack(side=tk.LEFT)
 
+mode_explain_label = tk.Label(strip_inner, text="Waiting for compression mode…",
+                               bg=BG2, fg=TEXT3, font=("Courier New", 9))
+mode_explain_label.pack(side=tk.LEFT, padx=(10, 0))
+
 metric_label = tk.Label(strip_inner, text="  Awaiting connection …",
                         bg=BG2, fg=TEXT3, font=("Courier New", 9))
 metric_label.pack(side=tk.LEFT, padx=(14, 0))
@@ -1074,6 +1099,13 @@ volt_avg_val  = volt_card(vm_body, "Avg Voltage",  GREEN,  0, 4)
 # Panel: Live Voltage Waveform (directly below Voltage Monitor)
 spark_outer, spark_body = panel_frame(col3, "LIVE VOLTAGE WAVEFORM", PURPLE)
 spark_outer.pack(fill=tk.X, pady=(6, 0))
+
+wave_info_label = tk.Label(spark_body,
+                           text="Current: \u2014   Range: \u2014   Samples: 0",
+                           bg=PANEL, fg=TEXT2,
+                           font=("Courier New", 8, "bold"),
+                           anchor="w")
+wave_info_label.pack(fill=tk.X, padx=2, pady=(0, 3))
 
 spark_canvas = tk.Canvas(spark_body, height=110, bg=TEXT_BOX, highlightthickness=0, bd=0)
 spark_canvas.pack(fill=tk.X, expand=True)
