@@ -130,15 +130,21 @@ def nibble_to_delta(nibble):
 def decode_zero_rle(hi, lo, data):
     base = (hi << 8) | lo
     values, prev = [base], base
+
     for token in data:
+        if len(values) >= BUFFER_SIZE:
+            break
+
         if token & 0x80:
-            for _ in range(token & 0x7F):
-                if len(values) >= BUFFER_SIZE: break
+            run_count = token & 0x7F
+            for _ in range(run_count):
+                if len(values) >= BUFFER_SIZE:
+                    break
                 values.append(prev)
         else:
-            if len(values) >= BUFFER_SIZE: break
             prev += nibble_to_delta(token)
             values.append(prev)
+
     return values
 
 def decode_bitpacking(hi, lo, data):
@@ -251,7 +257,8 @@ def read_serial():
                 _payload_sizes = _payload_sizes[-100:]
             stats["avg_payload"] = sum(_payload_sizes) / len(_payload_sizes)
             uncompressed_est = BUFFER_SIZE * 2
-            stats["compression_ratio"] = (1.0 - data_len / uncompressed_est) * 100.0
+            compressed_payload_bytes = 2 + data_len
+            stats["compression_ratio"] = (1.0 - compressed_payload_bytes / uncompressed_est) * 100.0
             if auto_send_enabled:
                 send_payload_back(payload, auto=True)
         else:
@@ -271,7 +278,12 @@ def read_serial():
             })
             continue
 
-        values           = decode_zero_rle(hi, lo, data) if mode == MODE_RLE else decode_bitpacking(hi, lo, data)
+        values = decode_zero_rle(hi, lo, data) if mode == MODE_RLE else decode_bitpacking(hi, lo, data)
+
+        if len(values) != BUFFER_SIZE:
+            stats["session_errors"] += 1
+            ui_queue.put(("error", f"Decode error: expected {BUFFER_SIZE} values, got {len(values)}"))
+            continue
         compression_name = "ZERO-RLE" if mode == MODE_RLE else "BIT-PACKING"
         abs_deltas       = [abs(values[i] - values[i-1]) for i in range(1, len(values))]
         avg_abs          = sum(abs_deltas) / max(1, len(abs_deltas))
@@ -464,7 +476,7 @@ def update_gui(pkt):
     draw_sparkline(spark_canvas,
                    pkt["spark"],
                    spark_canvas.winfo_width() or 300,
-                   spark_canvas.winfo_height() or 80)
+                   spark_canvas.winfo_height() or 90)
 
     # System log
     cs_ok    = pkt["checksum_ok"]
@@ -617,7 +629,7 @@ def clear_display():
 
     spark_canvas.delete("all")
     w = spark_canvas.winfo_width() or 300
-    h = spark_canvas.winfo_height() or 80
+    h = spark_canvas.winfo_height() or 90
     spark_canvas.create_text(w // 2, h // 2, text="AWAITING DATA", fill=TEXT3, font=FONT_MONO)
 
     mode_badge.config(text=" MODE:  —  ", bg=BORDER, fg=TEXT3)
@@ -1105,9 +1117,9 @@ wave_info_label = tk.Label(spark_body,
                            bg=PANEL, fg=TEXT2,
                            font=("Courier New", 8, "bold"),
                            anchor="w")
-wave_info_label.pack(fill=tk.X, padx=2, pady=(0, 3))
+wave_info_label.pack(fill=tk.X, padx=2, pady=(0, 1))
 
-spark_canvas = tk.Canvas(spark_body, height=110, bg=TEXT_BOX, highlightthickness=0, bd=0)
+spark_canvas = tk.Canvas(spark_body, height=90, bg=TEXT_BOX, highlightthickness=0, bd=0)
 spark_canvas.pack(fill=tk.X, expand=True)
 spark_canvas.create_text(150, 55, text="AWAITING DATA", fill=TEXT3, font=FONT_MONO)
 
